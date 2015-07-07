@@ -76,6 +76,7 @@
 #include "translation.h"
 #include "version.h"
 
+#include "modules/gdscript/gd_parser.h"
 #include "performance.h"
 
 static Globals *globals=NULL;
@@ -899,6 +900,7 @@ bool Main::start() {
 	bool doc_base=true;
 	String game_path;
 	String script;
+	String parse;
 	String test;
 	String screen;
 	String optimize;
@@ -924,6 +926,9 @@ bool Main::start() {
 		} else if ((args[i]=="-script" || args[i]=="-s") && i <(args.size()-1)) {
 		
 			script=args[i+1];
+			i++;
+		} else if ((args[i]=="-parse" || args[i]=="-p") && i <(args.size()-1)) {
+			parse=args[i+1];
 			i++;
 		} else if ((args[i]=="-level" || args[i]=="-l") && i <(args.size()-1)) {
 
@@ -1002,6 +1007,44 @@ bool Main::start() {
 
 
 #endif
+
+    if(parse != "") {
+        FileAccess *fa = FileAccess::open(parse,FileAccess::READ);
+        if (!fa) {
+            ERR_EXPLAIN("Could not open file: "+parse);
+            ERR_FAIL_V(NULL);
+        }
+
+
+        Vector<uint8_t> buf;
+        int flen = fa->get_len();
+        buf.resize(fa->get_len()+1);
+        fa->get_buffer(&buf[0],flen);
+        buf[flen]=0;
+
+        String code;
+        code.parse_utf8((const char*)&buf[0]);
+
+        Vector<String> lines;
+        int last=0;
+
+        for(int i=0;i<=code.length();i++) {
+
+            if (code[i]=='\n' || code[i]==0) {
+
+                lines.push_back(code.substr(last,i-last));
+                last=i+1;
+            }
+        }
+
+        GDParser parser;
+        Error err = parser.parse(code, parse.get_base_dir(), true);
+        if (err) {
+            print_line("Error: " + itos(parser.get_error_line())+": "+parser.get_error());
+        }
+
+        return false;
+    }
 
 	if(script=="" && game_path=="" && !editor && String(GLOBAL_DEF("application/main_scene",""))!="") {
 		game_path=GLOBAL_DEF("application/main_scene","");
